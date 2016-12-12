@@ -42,12 +42,33 @@ configuration ConfigSFCI
         [Parameter(Mandatory)]
         [String]$DtcIP,
 
+        [Parameter(Mandatory)]
+        [string]$SqlDriveLetter,
+
+        [Parameter(Mandatory)]
+        [string]$DtcDriveLetter,
+
+        [Parameter(Mandatory)]
+        [Int]$SqlProbePort,
+
+        [Parameter(Mandatory)]
+        [Int]$DtcProbePort,
+
+        [Parameter(Mandatory)]
+        [Int]$DtcPort,
+
+        [Parameter(Mandatory)]
+        [Int]$DtcAltPort,
+
+        [Parameter(Mandatory)]
+        [Int]$SqlTcpPort,
+
+        [Parameter(Mandatory)]
+        [Int]$SqlRpcPort,
+
         [String]$DomainNetbiosName=(Get-NetBIOSName -DomainName $DomainName),
         [Int]$RetryCount=20,
-        [Int]$RetryIntervalSec=30,
-        [string]$DriveLetter = 'S',
-        [string]$DtcDriveLetter = 'T',
-        [Int]$ProbePort=37000 
+        [Int]$RetryIntervalSec=30
     )
 
     Import-DscResource -ModuleName xComputerManagement, xFailOverCluster, xActiveDirectory, xSOFS, xSQLServer, xPendingReboot,xNetworking
@@ -164,7 +185,7 @@ configuration ConfigSFCI
 
         Script EnableS2D
         {
-            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk02 -FileSystem NTFS -DriveLetter ${dtcDriveLetter} -Size 100GB;New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${driveLetter} -UseMaximumSize"
+            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk02 -FileSystem NTFS -DriveLetter ${DtcDriveLetter} -Size 100GB;New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${SqlDriveLetter} -UseMaximumSize"
             TestScript = "(Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK'"
             GetScript = "@{Ensure = if ((Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK') {'Present'} Else {'Absent'}}"
             DependsOn = "[Script]MoveClusterGroups1"
@@ -223,9 +244,9 @@ configuration ConfigSFCI
             Profile               = ("Domain", "Private", "Public")
             Direction             = "Inbound"
             RemotePort            = "Any"
-            LocalPort             = ("445", "1433", "37000","37001")
+            LocalPort             = ($DtcPort, $SqlRpcPort, $sqlTcpPort , $DtcAltPort, $SqlProbePort, $DtcProbePort)
             Protocol              = "TCP"
-            Description           = "Firewall Rule for SQL"
+            Description           = "Firewall Rule for SQL and MSDTC"
             DependsOn             = "[xSQLServerFailoverClusterSetup]PrepareMSSQLSERVER"
         }
 
@@ -269,8 +290,8 @@ configuration ConfigSFCI
 
         Script FixProbe
         {
-            SetScript = "Get-ClusterResource -Name 'SQL IP*' | Set-ClusterParameter -Multiple @{Address=${clusterIP};ProbePort=${ProbePort};SubnetMask='255.255.255.255';Network='Cluster Network 1';EnableDhcp=0} -ErrorAction SilentlyContinue | out-null;Get-ClusterGroup -Name 'SQL Server*' -ErrorAction SilentlyContinue | Move-ClusterGroup -ErrorAction SilentlyContinue"
-            TestScript = "(Get-ClusterResource -name 'SQL IP*' | Get-ClusterParameter -Name ProbePort).Value -eq  ${probePort}"
+            SetScript = "Get-ClusterResource -Name 'SQL IP*' | Set-ClusterParameter -Multiple @{Address=${clusterIP};ProbePort=${SqlProbePort};SubnetMask='255.255.255.255';Network='Cluster Network 1';EnableDhcp=0} -ErrorAction SilentlyContinue | out-null;Get-ClusterGroup -Name 'SQL Server*' -ErrorAction SilentlyContinue | Move-ClusterGroup -ErrorAction SilentlyContinue"
+            TestScript = "(Get-ClusterResource -name 'SQL IP*' | Get-ClusterParameter -Name ProbePort).Value -eq  ${SqlProbePort}"
             GetScript = '@{Result = "Moved Cluster Group"}'
             DependsOn = "[xSQLServerFailoverClusterSetup]CompleteMSSQLSERVER"
         }

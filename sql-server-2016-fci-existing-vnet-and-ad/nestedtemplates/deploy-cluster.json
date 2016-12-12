@@ -142,12 +142,25 @@
     "sfciConfigFunction": "ConfigSFCI.ps1\\ConfigSFCI",
     "ilbName": "[concat(parameters('namePrefix'),'-ilb')]",
     "ilbID": "[resourceId('Microsoft.Network/loadBalancers',variables('ilbName'))]",
-    "ilbFE": "[concat(parameters('namePrefix'),'-ilb-fe')]",
-    "ilbBE": "[concat(parameters('namePrefix'),'-ilb-be')]",
-    "ilbFEConfigID1": "[concat(variables('ilbID'),'/frontendIPConfigurations/',variables('ilbFE'))]",
-    "ilbBEAddressPoolID": "[concat(variables('ilbID'),'/backendAddressPools/',variables('ilbBE'))]",
+    "ilbFE1": "[concat(parameters('namePrefix'),'-ilb-fe1')]",
+    "ilbFE2": "[concat(parameters('namePrefix'),'-ilb-fe2')]",
+    "ilbBE1": "[concat(parameters('namePrefix'),'-ilb-be1')]",
+    "ilbFEConfigID1": "[concat(variables('ilbID'),'/frontendIPConfigurations/',variables('ilbFE1'))]",
+    "ilbFEConfigID2": "[concat(variables('ilbID'),'/frontendIPConfigurations/',variables('ilbFE2'))]",
+    "ilbBEAddressPoolID1": "[concat(variables('ilbID'),'/backendAddressPools/',variables('ilbBE1'))]",
     "ilbProbe1": "[concat(parameters('namePrefix'),'ilbp1')]",
-    "ilbProbeID1": "[concat(variables('ilbID'),'/probes/',variables('ilbProbe1'))]"
+    "ilbProbe2": "[concat(parameters('namePrefix'),'ilbp2')]",
+    "ilbProbeID1": "[concat(variables('ilbID'),'/probes/',variables('ilbProbe1'))]",
+    "ilbProbeID2": "[concat(variables('ilbID'),'/probes/',variables('ilbProbe2'))]",
+    "SqlTcpPort" : 1433,
+    "SqlRpcPort" : 445,
+    "SqlProbePort" : 37000,
+    "DtcprobePort" : 37001,
+    "DtcPort" : 135,
+    "DtcAltPort" : 8080,
+    "SqlDriveLetter" : "S",
+    "DtcDriveLetter" : "T"
+
   },
   "resources": [
     {
@@ -190,10 +203,20 @@
       "properties": {
         "frontendIPConfigurations": [
           {
-            "name": "[variables('ilbFE')]",
+            "name": "[variables('ilbFE1')]",
             "properties": {
               "privateIPAllocationMethod": "Static",
               "privateIPAddress": "[parameters('clusterIP')]",
+              "subnet": {
+                "id": "[parameters('nicSubnetUri')]"
+              }
+            }
+          },
+          {
+            "name": "[variables('ilbFE2')]",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('DtcIP')]",
               "subnet": {
                 "id": "[parameters('nicSubnetUri')]"
               }
@@ -202,43 +225,79 @@
         ],
         "backendAddressPools": [
           {
-            "name": "[variables('ilbBE')]"
+            "name": "[variables('ilbBE1')]"
           }
         ],
         "loadBalancingRules": [
           {
-            "name": "sql-1433",
+            "name": "sql-tcp",
             "properties": {
               "frontendIPConfiguration": {
                 "id": "[variables('ilbFEConfigID1')]"
               },
               "backendAddressPool": {
-                "id": "[variables('ilbBEAddressPoolID')]"
+                "id": "[variables('ilbBEAddressPoolID1')]"
               },
               "probe": {
                 "id": "[variables('ilbProbeID1')]"
               },
               "protocol": "Tcp",
-              "frontendPort": 1433,
-              "backendPort": 1433,
+              "frontendPort": "[variables('SqlTcpPort')]",
+              "backendPort": "[variables('SqlTcpPort')]",
               "enableFloatingIP": true
             }
           },
           {
-            "name": "sql-445",
+            "name": "sql-rpc",
             "properties": {
               "frontendIPConfiguration": {
                 "id": "[variables('ilbFEConfigID1')]"
               },
               "backendAddressPool": {
-                "id": "[variables('ilbBEAddressPoolID')]"
+                "id": "[variables('ilbBEAddressPoolID1')]"
               },
               "probe": {
                 "id": "[variables('ilbProbeID1')]"
               },
               "protocol": "Tcp",
-              "frontendPort": 445,
-              "backendPort": 445,
+              "frontendPort": "[variables('SqlRpcPort')]",
+              "backendPort": "[variables('SqlRpcPort')]",
+              "enableFloatingIP": true
+            }
+          },
+          {
+            "name": "dtc-endpoint",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('ilbFEConfigID2')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('ilbBEAddressPoolID1')]"
+              },
+              "probe": {
+                "id": "[variables('ilbProbeID2')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": "[variables('DtcPort')]",
+              "backendPort": "[variables('DtcPort')]",
+              "enableFloatingIP": true
+            }
+          },
+          {
+            "name": "dtc-Listener",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('ilbFEConfigID2')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('ilbBEAddressPoolID1')]"
+              },
+              "probe": {
+                "id": "[variables('ilbProbeID2')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": "[variables('DtcAltPort')]",
+              "backendPort": "[variables('DtcAltPort')]",
               "enableFloatingIP": true
             }
           }
@@ -248,7 +307,16 @@
             "name": "[variables('ilbProbe1')]",
             "properties": {
               "protocol": "Tcp",
-              "port": 37000,
+              "port": "[variables('SqlProbePort')]",
+              "intervalInSeconds": 5,
+              "numberOfProbes": 2
+            }
+          },
+           {
+            "name": "[variables('ilbProbe2')]",
+            "properties": {
+              "protocol": "Tcp",
+              "port": "[variables('DtcProbePort')]",
               "intervalInSeconds": 5,
               "numberOfProbes": 2
             }
@@ -279,7 +347,7 @@
               },
               "loadBalancerBackendAddressPools": [
                 {
-                  "id": "[variables('ilbBEAddressPoolID')]"
+                  "id": "[variables('ilbBEAddressPoolID1')]"
                 }
               ]
             }
@@ -416,6 +484,14 @@
             "dtcName": "[variables('dtcName')]",
             "clusterIP": "[parameters('clusterIP')]",
             "dtcIP": "[parameters('dtcIP')]",
+            "SqlDriveLetter": "[variables('SqlDriveLetter')]",
+            "DtcDriveLetter": "[variables('DtcDriveLetter')]",
+            "SqlProbePort": "[variables('SqlProbePort')]",
+            "DtcProbePort": "[variables('DtcProbePort')]",
+            "DtcPort": "[variables('DtcPort')]",
+            "DtcAltPort": "[variables('DtcAltPort')]",
+            "SqlTcpPort": "[variables('SqlTcpPort')]",
+            "SqlRpcPort": "[variables('SqlRpcPort')]",
             "vmNamePrefix": "[variables('vmNamePrefix')]",
             "vmCount": "[parameters('vmCount')]",
             "vmDiskSize": "[parameters('vmDiskSize')]",
