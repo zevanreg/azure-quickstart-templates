@@ -41,6 +41,7 @@ configuration ConfigSFCI
         [Int]$RetryCount=20,
         [Int]$RetryIntervalSec=30,
         [string]$driveLetter = 'S',
+        [string]$dtcDriveLetter = 'T',
         [Int]$probePort=37000 
 
     )
@@ -160,7 +161,7 @@ configuration ConfigSFCI
 
         Script EnableS2D
         {
-            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${driveLetter} -UseMaximumSize"
+            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${dtcDriveLetter} -Size 100GB;New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${driveLetter} -UseMaximumSize"
             TestScript = "(Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK'"
             GetScript = "@{Ensure = if ((Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK') {'Present'} Else {'Absent'}}"
             DependsOn = "[Script]MoveClusterGroups1"
