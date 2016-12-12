@@ -16,6 +16,12 @@
         "description": "Cluster IP"
       }
     },
+    "DtcIP": {
+      "type": "string",
+      "metadata": {
+        "description": "Cluster DTC resource IP"
+      }
+    },
     "storageAccountType": {
       "type": "string",
       "allowedValues": [
@@ -176,6 +182,9 @@
           },
           "clusterIP": {
             "value": "[parameters('clusterIP')]"
+          },
+          "DtcIP": {
+            "value": "[parameters('DtcIP')]"
           },
           "_artifactsLocation": {
             "value": "[parameters('_artifactsLocation')]"

@@ -48,6 +48,12 @@
         "description": "IP Address of the cluster"
       }
     },
+    "DtcIP": {
+      "type": "string",
+      "metadata": {
+        "description": "IP Address of the cluster MSDTC resource"
+      }
+    },
     "storageAccountType": {
       "type": "string",
       "allowedValues": [
@@ -128,6 +134,7 @@
     "vmAvailabilitySetName": "[concat(variables('vmNamePrefix'),'as')]",
     "clusterName": "[concat(variables('vmNamePrefix'),'c')]",
     "sqlClusterName": "[concat(variables('vmNamePrefix'),'sql')]",
+    "dtcName": "[concat(variables('vmNamePrefix'),'dtc')]",
     "vmLoopTemplateURL": "[concat(parameters('_artifactsLocation'),'/nestedtemplates/newVM.json',parameters('_artifactsLocationSasToken'))]",
     "sfciPrepModulesURL": "[concat(parameters('_artifactsLocation'),'/dsc/prep-sfci.ps1.zip',parameters('_artifactsLocationSasToken'))]",
     "sfciPrepFunction": "PrepSFCI.ps1\\PrepSFCI",
@@ -406,7 +413,9 @@
             "domainName": "[parameters('domainName')]",
             "clusterName": "[variables('clusterName')]",
             "sqlClusterName": "[variables('sqlClusterName')]",
+            "dtcName": "[variables('dtcName')]",
             "clusterIP": "[parameters('clusterIP')]",
+            "dtcIP": "[parameters('dtcIP')]",
             "vmNamePrefix": "[variables('vmNamePrefix')]",
             "vmCount": "[parameters('vmCount')]",
             "vmDiskSize": "[parameters('vmDiskSize')]",

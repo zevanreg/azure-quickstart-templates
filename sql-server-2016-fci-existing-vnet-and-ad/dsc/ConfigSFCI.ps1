@@ -16,34 +16,38 @@ configuration ConfigSFCI
         [String]$ClusterName,
 
         [Parameter(Mandatory)]
+        [String]$DtcName,
+
+        [Parameter(Mandatory)]
         [String]$SQLClusterName,
 
         [Parameter(Mandatory)]
-        [String]$vmNamePrefix,
+        [String]$VmNamePrefix,
 
         [Parameter(Mandatory)]
-        [Int]$vmCount,
+        [Int]$VmCount,
 
         [Parameter(Mandatory)]
-        [Int]$vmDiskSize,
+        [Int]$VmDiskSize,
 
         [Parameter(Mandatory)]
-        [String]$witnessStorageName,
+        [String]$WitnessStorageName,
 
         [Parameter(Mandatory)]
-        [System.Management.Automation.PSCredential]$witnessStorageKey,
+        [System.Management.Automation.PSCredential]$WitnessStorageKey,
 
         [Parameter(Mandatory)]
-        [String]$clusterIP,
+        [String]$ClusterIP,
+
+        [Parameter(Mandatory)]
+        [String]$DtcIP,
 
         [String]$DomainNetbiosName=(Get-NetBIOSName -DomainName $DomainName),
-
         [Int]$RetryCount=20,
         [Int]$RetryIntervalSec=30,
-        [string]$driveLetter = 'S',
-        [string]$dtcDriveLetter = 'T',
-        [Int]$probePort=37000 
-
+        [string]$DriveLetter = 'S',
+        [string]$DtcDriveLetter = 'T',
+        [Int]$ProbePort=37000 
     )
 
     Import-DscResource -ModuleName xComputerManagement, xFailOverCluster, xActiveDirectory, xSOFS, xSQLServer, xPendingReboot,xNetworking
@@ -62,7 +66,6 @@ configuration ConfigSFCI
 
     Node localhost
     {
-
         # Set LCM to reboot if needed
         LocalConfigurationManager
         {
@@ -136,7 +139,7 @@ configuration ConfigSFCI
 
         Script CloudWitness
         {
-            SetScript = "Set-ClusterQuorum -CloudWitness -AccountName ${witnessStorageName} -AccessKey $($witnessStorageKey.GetNetworkCredential().Password)"
+            SetScript = "Set-ClusterQuorum -CloudWitness -AccountName ${WitnessStorageName} -AccessKey $($WitnessStorageKey.GetNetworkCredential().Password)"
             TestScript = "(Get-ClusterQuorum).QuorumResource.Name -eq 'Cloud Witness'"
             GetScript = "@{Ensure = if ((Get-ClusterQuorum).QuorumResource.Name -eq 'Cloud Witness') {'Present'} else {'Absent'}}"
             DependsOn = "[xCluster]FailoverCluster"
@@ -161,7 +164,7 @@ configuration ConfigSFCI
 
         Script EnableS2D
         {
-            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${dtcDriveLetter} -Size 100GB;New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${driveLetter} -UseMaximumSize"
+            SetScript = "Enable-ClusterS2D -Confirm:0; New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk02 -FileSystem NTFS -DriveLetter ${dtcDriveLetter} -Size 100GB;New-Volume -StoragePoolFriendlyName S2D* -FriendlyName VDisk01 -FileSystem NTFS -DriveLetter ${driveLetter} -UseMaximumSize"
             TestScript = "(Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK'"
             GetScript = "@{Ensure = if ((Get-StoragePool -FriendlyName S2D*).OperationalStatus -eq 'OK') {'Present'} Else {'Absent'}}"
             DependsOn = "[Script]MoveClusterGroups1"
@@ -189,9 +192,17 @@ configuration ConfigSFCI
             DependsOn = "[xPendingReboot]Reboot1"
         }
 
+        Script EnableDTC
+        {
+            SetScript = "Add-ClusterServerRole -Storage 'VDisk02' -StaticAddress ${DtcIP} -Name ${DtcName} | Add-ClusterResource -ResourceType 'Distributed Transaction Coordinator' -Name 'Distributed Transaction Coordinator' | Add-ClusterResourceDependency -Resource 'VDisk02' | Add-ClusterResourceDependency -Resource ${DtcName}; Start-ClusterGroup ${DtcName}"
+            TestScript = "Try{ (Get-ClusterResource -Name ${DtcName} -ErrorAction SilentlyContinue).State -eq 'Online' } catch {'False'}"
+            GetScript = "@{Ensure = if ((Get-ClusterResource -Name ${DtcName} -ErrorAction SilentlyContinue).State -eq 'Online') {'Present'} Else {'Absent'}}"
+            DependsOn = "[Script]MoveClusterGroups2"
+        }
+
         xSQLServerFailoverClusterSetup PrepareMSSQLSERVER
         {
-            DependsOn = "[Script]MoveClusterGroups2"
+            DependsOn = "[Script]EnableDTC"
             Action = "Prepare"
             SourcePath = "C:\"
             SourceFolder = "SQLServer_13.0_Full"
