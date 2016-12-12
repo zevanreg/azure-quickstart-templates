@@ -219,6 +219,7 @@ configuration ConfigSFCI
             TestScript = "Try{ (Get-ClusterResource -Name ${DtcName} -ErrorAction SilentlyContinue).State -eq 'Online' } catch {'False'}"
             GetScript = "@{Ensure = if ((Get-ClusterResource -Name ${DtcName} -ErrorAction SilentlyContinue).State -eq 'Online') {'Present'} Else {'Absent'}}"
             DependsOn = "[Script]MoveClusterGroups2"
+            PsDscRunAsCredential = $DomainCreds
         }
 
         xSQLServerFailoverClusterSetup PrepareMSSQLSERVER
